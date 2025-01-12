@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Apollo Authors
+ * Copyright 2024 Apollo Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import com.ctrip.framework.apollo.portal.service.RolePermissionService;
 import com.ctrip.framework.apollo.portal.service.SystemRoleManagerService;
 import com.ctrip.framework.apollo.portal.spi.UserInfoHolder;
 import com.ctrip.framework.apollo.portal.util.RoleUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component("permissionValidator")
@@ -36,7 +35,6 @@ public class PermissionValidator {
   private final AppNamespaceService appNamespaceService;
   private final SystemRoleManagerService systemRoleManagerService;
 
-  @Autowired
   public PermissionValidator(
           final UserInfoHolder userInfoHolder,
           final RolePermissionService rolePermissionService,
