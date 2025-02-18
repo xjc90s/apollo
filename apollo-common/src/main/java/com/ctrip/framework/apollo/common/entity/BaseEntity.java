@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Apollo Authors
+ * Copyright 2024 Apollo Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,12 @@
  */
 package com.ctrip.framework.apollo.common.entity;
 
+import com.ctrip.framework.apollo.audit.event.ApolloAuditLogDataInfluenceEvent;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.MoreObjects.ToStringHelper;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 
 import javax.persistence.Column;
@@ -31,6 +34,7 @@ import javax.persistence.MappedSuperclass;
 import javax.persistence.PrePersist;
 import javax.persistence.PreRemove;
 import javax.persistence.PreUpdate;
+import org.springframework.data.domain.DomainEvents;
 
 @MappedSuperclass
 @Inheritance(strategy = InheritanceType.TABLE_PER_CLASS)
@@ -38,25 +42,25 @@ public abstract class BaseEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
-  @Column(name = "Id")
+  @Column(name = "`Id`")
   private long id;
 
-  @Column(name = "IsDeleted", columnDefinition = "Bit default '0'")
+  @Column(name = "`IsDeleted`", columnDefinition = "Bit default '0'")
   protected boolean isDeleted = false;
 
-  @Column(name = "DeletedAt", columnDefinition = "Bigint default '0'")
+  @Column(name = "`DeletedAt`", columnDefinition = "Bigint default '0'")
   protected long deletedAt;
 
-  @Column(name = "DataChange_CreatedBy", nullable = false)
+  @Column(name = "`DataChange_CreatedBy`", nullable = false)
   private String dataChangeCreatedBy;
 
-  @Column(name = "DataChange_CreatedTime", nullable = false)
+  @Column(name = "`DataChange_CreatedTime`", nullable = false)
   private Date dataChangeCreatedTime;
 
-  @Column(name = "DataChange_LastModifiedBy")
+  @Column(name = "`DataChange_LastModifiedBy`")
   private String dataChangeLastModifiedBy;
 
-  @Column(name = "DataChange_LastTime")
+  @Column(name = "`DataChange_LastTime`")
   private Date dataChangeLastModifiedTime;
 
   public long getId() {
@@ -145,7 +149,13 @@ public abstract class BaseEntity {
         .add("dataChangeLastModifiedTime", dataChangeLastModifiedTime);
   }
 
+  @Override
   public String toString(){
     return toStringHelper().toString();
+  }
+
+  @DomainEvents
+  public Collection<ApolloAuditLogDataInfluenceEvent> domainEvents() {
+    return Collections.singletonList(new ApolloAuditLogDataInfluenceEvent(this.getClass(), this));
   }
 }
