@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Apollo Authors
+ * Copyright 2024 Apollo Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,11 @@ function OpenManageController($scope, $translate, toastr, AppUtil, OrganizationS
     $scope.preDeleteConsumer = preDeleteConsumer;
     $scope.deleteConsumer = deleteConsumer;
     $scope.preGrantPermission = preGrantPermission;
+    $scope.toggleRateLimitEnabledInput = function() {
+        if (!$scope.consumer.rateLimitEnabled) {
+            $scope.consumer.rateLimit = 0;
+        }
+    };
 
     function init() {
         initOrganization();
@@ -160,12 +165,25 @@ function OpenManageController($scope, $translate, toastr, AppUtil, OrganizationS
 
         if (!$scope.consumer.appId) {
             toastr.warning($translate.instant('Open.Manage.PleaseEnterAppId'));
+            $scope.submitBtnDisabled = false;
             return;
         }
+
+        if ($scope.consumer.rateLimitEnabled) {
+            if (!$scope.consumer.rateLimit || $scope.consumer.rateLimit < 1) {
+                toastr.warning($translate.instant('Open.Manage.Consumer.RateLimitValue.Error'));
+                $scope.submitBtnDisabled = false;
+                return;
+            }
+        } else {
+            $scope.consumer.rateLimit = 0;
+        }
+
         var selectedOrg = $orgWidget.select2('data')[0];
 
         if (!selectedOrg.id) {
             toastr.warning($translate.instant('Common.PleaseChooseDepartment'));
+            $scope.submitBtnDisabled = false;
             return;
         }
 
@@ -176,6 +194,7 @@ function OpenManageController($scope, $translate, toastr, AppUtil, OrganizationS
         var owner = $('.ownerSelector').select2('data')[0];
         if (!owner) {
             toastr.warning($translate.instant('Common.PleaseChooseOwner'));
+            $scope.submitBtnDisabled = false;
             return;
         }
         $scope.consumer.ownerName = owner.id;

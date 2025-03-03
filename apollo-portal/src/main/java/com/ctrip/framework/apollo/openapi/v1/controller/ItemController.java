@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 Apollo Authors
+ * Copyright 2024 Apollo Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.ctrip.framework.apollo.openapi.v1.controller;
 
 import com.ctrip.framework.apollo.common.dto.ItemDTO;
 import com.ctrip.framework.apollo.common.exception.BadRequestException;
+import com.ctrip.framework.apollo.common.exception.NotFoundException;
 import com.ctrip.framework.apollo.common.utils.RequestPrecondition;
 import com.ctrip.framework.apollo.core.utils.StringUtils;
 import com.ctrip.framework.apollo.openapi.api.ItemOpenApiService;
@@ -77,18 +78,18 @@ public class ItemController {
         new String(Base64.getDecoder().decode(key.getBytes(StandardCharsets.UTF_8))));
   }
 
-  @PreAuthorize(value = "@consumerPermissionValidator.hasModifyNamespacePermission(#request, #appId, #namespaceName, #env)")
+  @PreAuthorize(value = "@consumerPermissionValidator.hasModifyNamespacePermission(#appId, #env, #clusterName, #namespaceName)")
   @PostMapping(value = "/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/items")
   public OpenItemDTO createItem(@PathVariable String appId, @PathVariable String env,
                                 @PathVariable String clusterName, @PathVariable String namespaceName,
-                                @RequestBody OpenItemDTO item, HttpServletRequest request) {
+                                @RequestBody OpenItemDTO item) {
 
     RequestPrecondition.checkArguments(
         !StringUtils.isContainEmpty(item.getKey(), item.getDataChangeCreatedBy()),
         "key and dataChangeCreatedBy should not be null or empty");
 
     if (userService.findByUserId(item.getDataChangeCreatedBy()) == null) {
-      throw new BadRequestException("User " + item.getDataChangeCreatedBy() + " doesn't exist!");
+      throw BadRequestException.userNotExists(item.getDataChangeCreatedBy());
     }
 
     if (!StringUtils.isEmpty(item.getComment()) && item.getComment().length() > ITEM_COMMENT_MAX_LENGTH) {
@@ -98,12 +99,12 @@ public class ItemController {
     return this.itemOpenApiService.createItem(appId, env, clusterName, namespaceName, item);
   }
 
-  @PreAuthorize(value = "@consumerPermissionValidator.hasModifyNamespacePermission(#request, #appId, #namespaceName, #env)")
+  @PreAuthorize(value = "@consumerPermissionValidator.hasModifyNamespacePermission(#appId, #env, #clusterName, #namespaceName)")
   @PutMapping(value = "/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/items/{key:.+}")
   public void updateItem(@PathVariable String appId, @PathVariable String env,
                          @PathVariable String clusterName, @PathVariable String namespaceName,
                          @PathVariable String key, @RequestBody OpenItemDTO item,
-                         @RequestParam(defaultValue = "false") boolean createIfNotExists, HttpServletRequest request) {
+                         @RequestParam(defaultValue = "false") boolean createIfNotExists) {
 
     RequestPrecondition.checkArguments(item != null, "item payload can not be empty");
 
@@ -114,7 +115,7 @@ public class ItemController {
     RequestPrecondition.checkArguments(item.getKey().equals(key), "Key in path and payload is not consistent");
 
     if (userService.findByUserId(item.getDataChangeLastModifiedBy()) == null) {
-      throw new BadRequestException("user(dataChangeLastModifiedBy) not exists");
+      throw BadRequestException.userNotExists(item.getDataChangeLastModifiedBy());
     }
 
     if (!StringUtils.isEmpty(item.getComment()) && item.getComment().length() > ITEM_COMMENT_MAX_LENGTH) {
@@ -122,51 +123,51 @@ public class ItemController {
     }
 
     if (createIfNotExists) {
+      if (StringUtils.isEmpty(item.getDataChangeCreatedBy())) {
+        throw new BadRequestException("dataChangeCreatedBy is required when createIfNotExists is true");
+      }
       this.itemOpenApiService.createOrUpdateItem(appId, env, clusterName, namespaceName, item);
     } else {
       this.itemOpenApiService.updateItem(appId, env, clusterName, namespaceName, item);
     }
   }
 
-  @PreAuthorize(value = "@consumerPermissionValidator.hasModifyNamespacePermission(#request, #appId, #namespaceName, #env)")
+  @PreAuthorize(value = "@consumerPermissionValidator.hasModifyNamespacePermission(#appId, #env, #clusterName, #namespaceName)")
   @PutMapping(value = "/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/encodedItems/{key:.+}")
   public void updateItemByEncodedKey(@PathVariable String appId, @PathVariable String env,
       @PathVariable String clusterName, @PathVariable String namespaceName,
       @PathVariable String key, @RequestBody OpenItemDTO item,
-      @RequestParam(defaultValue = "false") boolean createIfNotExists, HttpServletRequest request) {
+      @RequestParam(defaultValue = "false") boolean createIfNotExists) {
     this.updateItem(appId, env, clusterName, namespaceName,
         new String(Base64.getDecoder().decode(key.getBytes(StandardCharsets.UTF_8))), item,
-        createIfNotExists, request);
+        createIfNotExists);
   }
 
-  @PreAuthorize(value = "@consumerPermissionValidator.hasModifyNamespacePermission(#request, #appId, #namespaceName, #env)")
+  @PreAuthorize(value = "@consumerPermissionValidator.hasModifyNamespacePermission(#appId, #env, #clusterName, #namespaceName)")
   @DeleteMapping(value = "/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/items/{key:.+}")
   public void deleteItem(@PathVariable String appId, @PathVariable String env,
                          @PathVariable String clusterName, @PathVariable String namespaceName,
-                         @PathVariable String key, @RequestParam String operator,
-                         HttpServletRequest request) {
+                         @PathVariable String key, @RequestParam String operator) {
 
     if (userService.findByUserId(operator) == null) {
-      throw new BadRequestException("user(operator) not exists");
+      throw BadRequestException.userNotExists(operator);
     }
 
     ItemDTO toDeleteItem = itemService.loadItem(Env.valueOf(env), appId, clusterName, namespaceName, key);
     if (toDeleteItem == null) {
-      throw new BadRequestException("item not exists");
+      throw NotFoundException.itemNotFound(appId, clusterName, namespaceName, key);
     }
 
     this.itemOpenApiService.removeItem(appId, env, clusterName, namespaceName, key, operator);
   }
 
-  @PreAuthorize(value = "@consumerPermissionValidator.hasModifyNamespacePermission(#request, #appId, #namespaceName, #env)")
+  @PreAuthorize(value = "@consumerPermissionValidator.hasModifyNamespacePermission(#appId, #env, #clusterName, #namespaceName)")
   @DeleteMapping(value = "/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/encodedItems/{key:.+}")
   public void deleteItemByEncodedKey(@PathVariable String appId, @PathVariable String env,
       @PathVariable String clusterName, @PathVariable String namespaceName,
-      @PathVariable String key, @RequestParam String operator,
-      HttpServletRequest request) {
+      @PathVariable String key, @RequestParam String operator) {
     this.deleteItem(appId, env, clusterName, namespaceName,
-        new String(Base64.getDecoder().decode(key.getBytes(StandardCharsets.UTF_8))), operator,
-        request);
+        new String(Base64.getDecoder().decode(key.getBytes(StandardCharsets.UTF_8))), operator);
   }
 
   @GetMapping(value = "/apps/{appId}/clusters/{clusterName}/namespaces/{namespaceName}/items")
